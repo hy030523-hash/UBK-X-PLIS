@@ -11,6 +11,103 @@
     <!-- Google Fonts (Inter & Montserrat for athletic bold look) -->
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
 
+    <!-- Firebase SDK Imports (v11.6.1) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ============================================================
+        // 🔑 [필수] Firebase Console에서 복사한 본인의 설정값으로 바꿔주세요!
+        // ============================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvS8Q6e9wXrwH2Za7mOoDx27uu9fYKU6M",
+            authDomain: "ubk-x-plis.firebaseapp.com",
+            projectId: "ubk-x-plis",
+            storageBucket: "ubk-x-plis.firebasestorage.app",
+            messagingSenderId: "113103565631",
+            appId: "1:113103565631:web:9d2acf559d561616e6998a"
+        };
+
+        // Firebase 초기화
+        let db, auth;
+        let isFirebaseReady = false;
+
+        try {
+            if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
+                // 익명 로그인 수행
+                signInAnonymously(auth).then(() => {
+                    console.log("Firebase 인증 성공 (실시간 클라우드 DB 연결됨)");
+                    initFirestoreListener();
+                }).catch(err => {
+                    console.error("Firebase 인증 실패:", err);
+                    initLocalStorageFallback();
+                });
+            } else {
+                console.warn("Firebase 설정값이 아직 기본값입니다. 로컬 저장소 모드로 작동합니다.");
+                initLocalStorageFallback();
+            }
+        } catch (e) {
+            console.error("Firebase 초기화 에러:", e);
+            initLocalStorageFallback();
+        }
+
+        // Firestore 실시간 리스너 연결
+        function initFirestoreListener() {
+            isFirebaseReady = true;
+            const teamsCol = collection(db, "teams");
+
+            onSnapshot(teamsCol, (snapshot) => {
+                const loaded = [];
+                snapshot.forEach(docSnap => {
+                    loaded.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                window.teams = loaded;
+                window.renderLeaderboard();
+                window.updateTeamDropdown();
+            }, (error) => {
+                console.error("실시간 수신 에러:", error);
+            });
+        }
+
+        // Firebase 미설정 시 로컬스토리지 백업 모드
+        function initLocalStorageFallback() {
+            window.teams = window.loadLocalTeams();
+            window.renderLeaderboard();
+            window.updateTeamDropdown();
+        }
+
+        // 전역 함수로 데이터베이스 저장/삭제 인터페이스 노출
+        window.saveTeamToDB = async function(team) {
+            if (isFirebaseReady && db) {
+                const docRef = doc(db, "teams", String(team.id));
+                await setDoc(docRef, {
+                    name: team.name,
+                    division: team.division,
+                    timeStamp: team.timeStamp,
+                    e1: team.e1 ?? null,
+                    e2: team.e2 ?? null,
+                    e3: team.e3 ?? null
+                });
+            } else {
+                window.saveTeamsData();
+            }
+        };
+
+        window.deleteTeamFromDB = async function(teamId) {
+            if (isFirebaseReady && db) {
+                const docRef = doc(db, "teams", String(teamId));
+                await deleteDoc(docRef);
+            } else {
+                window.saveTeamsData();
+            }
+        };
+    </script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -92,18 +189,18 @@
             </div>
 
             <!-- Quick Action Button -->
-            <div class="flex items-center space-x-2">
-                <button onclick="resetToInitialData()" title="데이터 초기화" class="p-2.5 rounded-xl bg-dark-bg border border-dark-border hover:border-red-500 text-gray-400 hover:text-red-400 transition text-sm">
-                    <i class="fa-solid fa-rotate-right"></i>
-                </button>
-                <button onclick="openScoreModal()" class="flex items-center space-x-2 bg-brand hover:bg-brand-light text-white font-bold py-2.5 px-4 rounded-xl transition-all duration-200 transform hover:scale-105 brand-glow text-sm">
-                    <i class="fa-solid fa-plus"></i>
-                    <span class="hidden sm:inline">팀 기록 제출</span>
-                    <span class="sm:hidden">기록입력</span>
-                </button>
-            </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="resetToInitialData()" title="데이터 초기화" class="p-2.5 rounded-xl bg-dark-bg border border-dark-border hover:border-red-500 text-gray-400 hover:text-red-400 transition text-sm">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+            <button onclick="openScoreModal()" class="flex items-center space-x-2 bg-brand hover:bg-brand-light text-white font-bold py-2.5 px-4 rounded-xl transition-all duration-200 transform hover:scale-105 brand-glow text-sm">
+                <i class="fa-solid fa-plus"></i>
+                <span class="hidden sm:inline">팀 기록 제출</span>
+                <span class="sm:hidden">기록입력</span>
+            </button>
         </div>
-    </header>
+    </div>
+</header>
 
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-grow">
@@ -316,51 +413,50 @@
 
         // 기본 샘플 데이터
         const DEFAULT_TEAMS = [
-            { id: 1, name: '불사조 팀', division: 'MM', timeStamp: '11:15', e1: 685, e2: 520, e3: 390 },
-            { id: 2, name: '크로스퀸즈', division: 'WW', timeStamp: '11:20', e1: 740, e2: 580, e3: 420 },
-            { id: 3, name: '파워하우스', division: 'MW', timeStamp: '11:18', e1: 710, e2: 515, e3: 405 },
-            { id: 4, name: 'UBK 알파', division: 'MM', timeStamp: '11:32', e1: 660, e2: 495, e3: 380 },
-            { id: 5, name: '플리스 원더', division: 'WW', timeStamp: '11:40', e1: 720, e2: 560, e3: 410 },
-            { id: 6, name: '라이트닝 슬레이어', division: 'MW', timeStamp: '11:25', e1: 695, e2: 540, e3: 400 },
+            { id: '1', name: '불사조 팀', division: 'MM', timeStamp: '11:15', e1: 685, e2: 520, e3: 390 },
+            { id: '2', name: '크로스퀸즈', division: 'WW', timeStamp: '11:20', e1: 740, e2: 580, e3: 420 },
+            { id: '3', name: '파워하우스', division: 'MW', timeStamp: '11:18', e1: 710, e2: 515, e3: 405 },
+            { id: '4', name: 'UBK 알파', division: 'MM', timeStamp: '11:32', e1: 660, e2: 495, e3: 380 },
+            { id: '5', name: '플리스 원더', division: 'WW', timeStamp: '11:40', e1: 720, e2: 560, e3: 410 },
+            { id: '6', name: '라이트닝 슬레이어', division: 'MW', timeStamp: '11:25', e1: 695, e2: 540, e3: 400 },
         ];
 
         const STORAGE_KEY = 'UBK_SHOWDOWN_2026_DATA';
 
-        // LocalStorage에서 데이터 로드 (새로고침해도 보존)
-        function loadTeamsData() {
+        // LocalStorage 모드 지원
+        window.loadLocalTeams = function() {
             try {
                 const stored = localStorage.getItem(STORAGE_KEY);
-                if (stored) {
-                    return JSON.parse(stored);
-                }
+                if (stored) return JSON.parse(stored);
             } catch (e) {
                 console.error("LocalStorage 로드 실패:", e);
             }
             return [...DEFAULT_TEAMS];
-        }
+        };
 
-        // LocalStorage에 저장
-        function saveTeamsData() {
+        window.saveTeamsData = function() {
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(teams));
             } catch (e) {
                 console.error("LocalStorage 저장 실패:", e);
             }
-        }
+        };
 
-        // 전체 초기화 기능 (대회 당일 빈 상태로 시작할 때 사용)
         function resetToInitialData() {
-            const confirmed = window.confirm("데이터를 초기화하시겠습니까?\n\n'확인'을 누르면 기본 예시 데이터로 복원됩니다.\n(새 팀을 모두 삭제하고 비우려면 확인 후 관리)");
+            const confirmed = window.confirm("데이터를 기본 예시 데이터로 초기화하시겠습니까?");
             if (confirmed) {
                 teams = [...DEFAULT_TEAMS];
+                if (window.saveTeamToDB) {
+                    teams.forEach(t => window.saveTeamToDB(t));
+                }
                 saveTeamsData();
                 renderLeaderboard();
                 showToast("데이터가 초기화되었습니다.");
             }
         }
 
-        let teams = loadTeamsData();
-        let currentTab = 'overall'; // 'overall' | 'event1' | 'event2' | 'event3'
+        window.teams = [];
+        let currentTab = 'overall';
         let currentDivision = 'ALL';
         let isNewTeamMode = false;
 
@@ -377,7 +473,6 @@
         function selectTab(tabKey) {
             currentTab = tabKey;
 
-            // Highlight Cards UI
             ['overall', 'event1', 'event2', 'event3'].forEach(k => {
                 const card = document.getElementById(`tab-card-${k}`);
                 const badge = card.querySelector('.font-display');
@@ -394,7 +489,6 @@
                 }
             });
 
-            // Update Header Titles
             const titleEl = document.getElementById('currentWodTitle');
             const subTitleEl = document.getElementById('currentWodSubtitle');
             if (tabKey === 'overall') {
@@ -415,19 +509,17 @@
         }
 
         // Render Leaderboard Table
-        function renderLeaderboard() {
+        window.renderLeaderboard = function() {
             const tbody = document.getElementById('leaderboardBody');
             const thead = document.getElementById('tableHead');
-            const searchVal = document.getElementById('searchInput').value.toLowerCase();
+            const searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase() : '';
 
-            // Filter teams
-            let filtered = teams.filter(t => {
+            let filtered = (window.teams || []).filter(t => {
                 const matchDiv = currentDivision === 'ALL' || t.division === currentDivision;
                 const matchSearch = t.name.toLowerCase().includes(searchVal);
                 return matchDiv && matchSearch;
             });
 
-            // Sort according to active tab (낮은 시간이 1등)
             filtered.sort((a, b) => {
                 if (currentTab === 'overall') {
                     return getTotalSeconds(a) - getTotalSeconds(b);
@@ -441,9 +533,9 @@
                 return 0;
             });
 
-            document.getElementById('totalAthletesCount').innerText = filtered.length;
+            const countEl = document.getElementById('totalAthletesCount');
+            if (countEl) countEl.innerText = filtered.length;
 
-            // Render Table Header depending on tab
             if (currentTab === 'overall') {
                 thead.innerHTML = `
                     <tr class="border-b border-dark-border bg-dark-bg/60 text-xs font-bold uppercase tracking-wider text-gray-400 font-display">
@@ -538,7 +630,7 @@
                     `;
                 }
             }).join('');
-        }
+        };
 
         // Filter Division
         function setDivision(division) {
@@ -554,10 +646,12 @@
         }
 
         // Teams dropdown populate for selected division
-        function updateTeamDropdown(selectedTeamName = '') {
-            const div = document.getElementById('inputDivision').value;
+        window.updateTeamDropdown = function(selectedTeamName = '') {
+            const divEl = document.getElementById('inputDivision');
+            if (!divEl) return;
+            const div = divEl.value;
             const selectEl = document.getElementById('selectTeamName');
-            const divTeams = teams.filter(t => t.division === div);
+            const divTeams = (window.teams || []).filter(t => t.division === div);
 
             selectEl.innerHTML = '';
             if (divTeams.length === 0) {
@@ -576,7 +670,7 @@
             }
 
             loadCurrentEventTime();
-        }
+        };
 
         function onDivisionChange() {
             if (!isNewTeamMode) {
@@ -603,7 +697,7 @@
 
             const teamName = document.getElementById('selectTeamName').value;
             const div = document.getElementById('inputDivision').value;
-            const team = teams.find(t => t.name === teamName && t.division === div);
+            const team = (window.teams || []).find(t => t.name === teamName && t.division === div);
 
             if (!team) {
                 timeInput.value = '';
@@ -629,14 +723,14 @@
             }
         }
 
-        // 현재 선택한 이벤트 기록 삭제 (초기화)
-        function deleteCurrentEventRecord() {
+        // 현재 선택한 이벤트 기록 삭제
+        async function deleteCurrentEventRecord() {
             if (isNewTeamMode) return;
             const teamName = document.getElementById('selectTeamName').value;
             const division = document.getElementById('inputDivision').value;
             const targetEvent = document.getElementById('inputTargetEvent').value;
 
-            const team = teams.find(t => t.name === teamName && t.division === division);
+            const team = (window.teams || []).find(t => t.name === teamName && t.division === division);
             if (!team) return;
 
             const eventName = targetEvent === 'event1' ? 'EVENT 01' : targetEvent === 'event2' ? 'EVENT 02' : 'FINAL EVENT';
@@ -645,23 +739,30 @@
             if (targetEvent === 'event2') team.e2 = null;
             if (targetEvent === 'event3') team.e3 = null;
 
-            saveTeamsData();
+            if (window.saveTeamToDB) {
+                await window.saveTeamToDB(team);
+            }
             loadCurrentEventTime();
             renderLeaderboard();
             showToast(`[${teamName}]의 ${eventName} 기록이 삭제되었습니다.`);
         }
 
         // 팀 자체를 완전 삭제
-        function deleteEntireTeam() {
+        async function deleteEntireTeam() {
             if (isNewTeamMode) return;
             const teamName = document.getElementById('selectTeamName').value;
             const division = document.getElementById('inputDivision').value;
 
-            const index = teams.findIndex(t => t.name === teamName && t.division === division);
-            if (index === -1) return;
+            const team = (window.teams || []).find(t => t.name === teamName && t.division === division);
+            if (!team) return;
 
-            teams.splice(index, 1);
-            saveTeamsData();
+            if (window.deleteTeamFromDB) {
+                await window.deleteTeamFromDB(team.id);
+            }
+            
+            const index = window.teams.findIndex(t => t.id === team.id);
+            if (index !== -1) window.teams.splice(index, 1);
+
             updateTeamDropdown();
             renderLeaderboard();
             closeScoreModal();
@@ -691,7 +792,6 @@
             document.getElementById('scoreForm').reset();
             cancelNewTeamMode();
 
-            // 현재 리더보드 탭이나 디비전에 맞춰 기본값 설정
             if (currentDivision !== 'ALL') {
                 document.getElementById('inputDivision').value = currentDivision;
             }
@@ -746,7 +846,7 @@
         }
 
         // Form Submission
-        function handleScoreSubmit(event) {
+        async function handleScoreSubmit(event) {
             event.preventDefault();
             const division = document.getElementById('inputDivision').value;
             const targetEvent = document.getElementById('inputTargetEvent').value;
@@ -776,7 +876,7 @@
             const now = new Date();
             const timeStamp = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-            let team = teams.find(t => t.name.toLowerCase() === teamName.toLowerCase() && t.division === division);
+            let team = (window.teams || []).find(t => t.name.toLowerCase() === teamName.toLowerCase() && t.division === division);
 
             if (team) {
                 team.timeStamp = timeStamp;
@@ -785,7 +885,7 @@
                 if (targetEvent === 'event3') team.e3 = sec;
             } else {
                 team = {
-                    id: Date.now(),
+                    id: String(Date.now()),
                     name: teamName,
                     division: division,
                     timeStamp: timeStamp,
@@ -793,10 +893,14 @@
                     e2: targetEvent === 'event2' ? sec : null,
                     e3: targetEvent === 'event3' ? sec : null,
                 };
-                teams.push(team);
+                window.teams.push(team);
             }
 
-            saveTeamsData(); // 로컬 스토리지에 자동 저장
+            // DB에 저장
+            if (window.saveTeamToDB) {
+                await window.saveTeamToDB(team);
+            }
+
             closeScoreModal();
             renderLeaderboard();
             showToast(`[${teamName}] ${targetEvent.toUpperCase()} 기록이 저장되었습니다!`);
@@ -812,11 +916,6 @@
                 toast.classList.add('translate-y-20', 'opacity-0');
             }, 3000);
         }
-
-        // Initial Initialization
-        window.onload = function() {
-            renderLeaderboard();
-        };
     </script>
 </body>
 </html>
