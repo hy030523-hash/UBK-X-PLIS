@@ -28,7 +28,6 @@
             messagingSenderId: "113103565631",
             appId: "1:113103565631:web:9d2acf559d561616e6998a"
         };
-
         // Firebase 초기화 및 익명 인증(Authentication) 연동
         let db;
         let auth;
@@ -432,11 +431,32 @@
 
         const STORAGE_KEY = 'UBK_SHOWDOWN_2026_DATA';
 
+        // 과거 브라우저에 남아있던 예시 더미 데이터 강제 소거 루틴
+        (function clearLegacyMockData() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    // 예시 팀명(UBK 알파, 불사조 팀 등)이 포함된 과거 캐시가 있으면 즉시 제거
+                    const hasMock = parsed.some(t => t.name === 'UBK 알파' || t.name === '불사조 팀' || t.name === '플리스 원더');
+                    if (hasMock) {
+                        localStorage.removeItem(STORAGE_KEY);
+                    }
+                }
+            } catch (e) {
+                console.error("캐시 정리 에러:", e);
+            }
+        })();
+
         // LocalStorage 모드 지원 (Firebase 미사용 시 대비)
         window.loadLocalTeams = function() {
             try {
                 const stored = localStorage.getItem(STORAGE_KEY);
-                if (stored) return JSON.parse(stored);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    const cleanList = parsed.filter(t => t.name !== 'UBK 알파' && t.name !== '불사조 팀' && t.name !== '플리스 원더' && t.name !== '파워하우스' && t.name !== '라이트닝 슬레이어' && t.name !== '크로스퀸즈');
+                    return cleanList;
+                }
             } catch (e) {
                 console.error("LocalStorage 로드 실패:", e);
             }
