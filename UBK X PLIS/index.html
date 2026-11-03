@@ -29,36 +29,43 @@
             appId: "1:113103565631:web:9d2acf559d561616e6998a"
         };
 
-        // Firebase 초기화
-        let db, auth;
+        // Firebase 초기화 및 익명 인증(Authentication) 연동
+        let db;
+        let auth;
         let isFirebaseReady = false;
 
-        try {
-            if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                
-                // 익명 로그인 수행
-                signInAnonymously(auth).then(() => {
-                    console.log("Firebase 인증 성공 (실시간 클라우드 DB 연결됨)");
-                    initFirestoreListener();
-                }).catch(err => {
-                    console.error("Firebase 인증 실패:", err);
+        async function initFirebase() {
+            try {
+                if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "AIzaSyBvS8Q6e9wXrwH2Za7mOoDx27uu9fYKU6M") {
+                    const app = initializeApp(firebaseConfig);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+
+                    // 익명 로그인 수행
+                    await signInAnonymously(auth);
+                    console.log("Firebase 익명 인증 성공");
+
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            isFirebaseReady = true;
+                            console.log("Firestore 실시간 데이터 동기화 시작 (UID:", user.uid, ")");
+                            initFirestoreListener();
+                        }
+                    });
+                } else {
+                    console.warn("Firebase 설정값이 아직 기본값입니다. 로컬 저장소 모드로 작동합니다.");
                     initLocalStorageFallback();
-                });
-            } else {
-                console.warn("Firebase 설정값이 아직 기본값입니다. 로컬 저장소 모드로 작동합니다.");
+                }
+            } catch (e) {
+                console.error("Firebase 인증/초기화 에러:", e);
                 initLocalStorageFallback();
             }
-        } catch (e) {
-            console.error("Firebase 초기화 에러:", e);
-            initLocalStorageFallback();
         }
+
+        initFirebase();
 
         // Firestore 실시간 리스너 연결
         function initFirestoreListener() {
-            isFirebaseReady = true;
             const teamsCol = collection(db, "teams");
 
             onSnapshot(teamsCol, (snapshot) => {
@@ -70,7 +77,8 @@
                 window.renderLeaderboard();
                 window.updateTeamDropdown();
             }, (error) => {
-                console.error("실시간 수신 에러:", error);
+                console.error("실시간 수신 에러 (규칙 확인 필요):", error);
+                initLocalStorageFallback();
             });
         }
 
@@ -84,15 +92,19 @@
         // 전역 함수로 데이터베이스 저장/삭제 인터페이스 노출
         window.saveTeamToDB = async function(team) {
             if (isFirebaseReady && db) {
-                const docRef = doc(db, "teams", String(team.id));
-                await setDoc(docRef, {
-                    name: team.name,
-                    division: team.division,
-                    timeStamp: team.timeStamp,
-                    e1: team.e1 ?? null,
-                    e2: team.e2 ?? null,
-                    e3: team.e3 ?? null
-                });
+                try {
+                    const docRef = doc(db, "teams", String(team.id));
+                    await setDoc(docRef, {
+                        name: team.name,
+                        division: team.division,
+                        timeStamp: team.timeStamp,
+                        e1: team.e1 ?? null,
+                        e2: team.e2 ?? null,
+                        e3: team.e3 ?? null
+                    });
+                } catch (err) {
+                    console.error("DB 저장 실패:", err);
+                }
             } else {
                 window.saveTeamsData();
             }
@@ -100,8 +112,12 @@
 
         window.deleteTeamFromDB = async function(teamId) {
             if (isFirebaseReady && db) {
-                const docRef = doc(db, "teams", String(teamId));
-                await deleteDoc(docRef);
+                try {
+                    const docRef = doc(db, "teams", String(teamId));
+                    await deleteDoc(docRef);
+                } catch (err) {
+                    console.error("DB 삭제 실패:", err);
+                }
             } else {
                 window.saveTeamsData();
             }
@@ -411,19 +427,12 @@
             return min * 60 + sec;
         }
 
-        // 기본 샘플 데이터
-        const DEFAULT_TEAMS = [
-            { id: '1', name: '불사조 팀', division: 'MM', timeStamp: '11:15', e1: 685, e2: 520, e3: 390 },
-            { id: '2', name: '크로스퀸즈', division: 'WW', timeStamp: '11:20', e1: 740, e2: 580, e3: 420 },
-            { id: '3', name: '파워하우스', division: 'MW', timeStamp: '11:18', e1: 710, e2: 515, e3: 405 },
-            { id: '4', name: 'UBK 알파', division: 'MM', timeStamp: '11:32', e1: 660, e2: 495, e3: 380 },
-            { id: '5', name: '플리스 원더', division: 'WW', timeStamp: '11:40', e1: 720, e2: 560, e3: 410 },
-            { id: '6', name: '라이트닝 슬레이어', division: 'MW', timeStamp: '11:25', e1: 695, e2: 540, e3: 400 },
-        ];
+        // 기본 샘플 데이터 완전 제거 (실제 대회용 빈 배열)
+        const DEFAULT_TEAMS = [];
 
         const STORAGE_KEY = 'UBK_SHOWDOWN_2026_DATA';
 
-        // LocalStorage 모드 지원
+        // LocalStorage 모드 지원 (Firebase 미사용 시 대비)
         window.loadLocalTeams = function() {
             try {
                 const stored = localStorage.getItem(STORAGE_KEY);
@@ -431,7 +440,7 @@
             } catch (e) {
                 console.error("LocalStorage 로드 실패:", e);
             }
-            return [...DEFAULT_TEAMS];
+            return [];
         };
 
         window.saveTeamsData = function() {
@@ -443,15 +452,20 @@
         };
 
         function resetToInitialData() {
-            const confirmed = window.confirm("데이터를 기본 예시 데이터로 초기화하시겠습니까?");
+            const confirmed = window.confirm("모든 데이터를 초기화하시겠습니까? (등록된 모든 팀과 기록이 삭제됩니다)");
             if (confirmed) {
-                teams = [...DEFAULT_TEAMS];
-                if (window.saveTeamToDB) {
-                    teams.forEach(t => window.saveTeamToDB(t));
+                if (window.teams && window.teams.length > 0) {
+                    window.teams.forEach(t => {
+                        if (window.deleteTeamFromDB) {
+                            window.deleteTeamFromDB(t.id);
+                        }
+                    });
                 }
+                window.teams = [];
                 saveTeamsData();
                 renderLeaderboard();
-                showToast("데이터가 초기화되었습니다.");
+                updateTeamDropdown();
+                showToast("모든 데이터가 초기화되었습니다.");
             }
         }
 
@@ -554,14 +568,13 @@
                         <th class="py-4 px-6 text-center w-20">순위</th>
                         <th class="py-4 px-6">팀명 (Team)</th>
                         <th class="py-4 px-6 text-center">디비전</th>
-                        <th class="py-4 px-6 text-center">최근 갱신 시간</th>
                         <th class="py-4 px-6 text-right text-brand">완주 기록</th>
                     </tr>
                 `;
             }
 
             if (filtered.length === 0) {
-                const colSpan = currentTab === 'overall' ? 7 : 5;
+                const colSpan = currentTab === 'overall' ? 7 : 4;
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="${colSpan}" class="py-12 text-center text-gray-500">
@@ -624,7 +637,6 @@
                                     ${team.division}
                                 </span>
                             </td>
-                            <td class="py-4 px-6 text-center text-gray-400 text-xs font-mono">${team.timeStamp || '11:00'}</td>
                             <td class="py-4 px-6 text-right font-mono font-bold text-brand text-lg">${evScore}</td>
                         </tr>
                     `;
