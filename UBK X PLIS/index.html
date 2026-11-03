@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrossFit Competition Live Leaderboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Inter & Montserrat for athletic bold look) -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            DEFAULT: '#e52b78', // 이미지의 핫핑크/마젠타 컬러
+                            light: '#ff4d97',
+                            dark: '#b31557',
+                            glow: 'rgba(229, 43, 120, 0.4)'
+                        },
+                        dark: {
+                            bg: '#0a0a0a',
+                            card: '#141414',
+                            border: '#262626',
+                            hover: '#1f1f1f'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                        display: ['Montserrat', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #f3f4f6;
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        .font-display {
+            font-family: 'Montserrat', sans-serif;
+        }
+        .brand-glow {
+            box-shadow: 0 0 20px rgba(229, 43, 120, 0.35);
+        }
+        .text-glow {
+            text-shadow: 0 0 10px rgba(229, 43, 120, 0.6);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #141414;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #e52b78;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-brand selection:text-white">
+
+    <!-- Navbar / Header -->
+    <header class="border-b border-dark-border bg-dark-card/90 backdrop-blur sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <!-- Logo & Event Name -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-brand flex items-center justify-center text-white text-lg font-black italic shadow-lg brand-glow tracking-tighter">
+                    UBK
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-lg sm:text-2xl font-black tracking-wider uppercase font-display text-white">
+                            UBK X PLIS 2026 <span class="text-brand text-glow">OPENSHOWDOWN</span>
+                        </span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-brand/10 text-brand border border-brand/30 animate-pulse">
+                            <span class="w-2 h-2 mr-1 rounded-full bg-brand"></span> LIVE
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-400">1-DAY EVENT · 실시간 팀 리더보드</p>
+                </div>
+            </div>
+
+            <!-- Quick Action Button -->
+            <div class="flex items-center space-x-2">
+                <button onclick="resetToInitialData()" title="데이터 초기화" class="p-2.5 rounded-xl bg-dark-bg border border-dark-border hover:border-red-500 text-gray-400 hover:text-red-400 transition text-sm">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+                <button onclick="openScoreModal()" class="flex items-center space-x-2 bg-brand hover:bg-brand-light text-white font-bold py-2.5 px-4 rounded-xl transition-all duration-200 transform hover:scale-105 brand-glow text-sm">
+                    <i class="fa-solid fa-plus"></i>
+                    <span class="hidden sm:inline">팀 기록 제출</span>
+                    <span class="sm:hidden">기록입력</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-grow">
+
+        <!-- WOD / Event Overview Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div onclick="selectTab('overall')" id="tab-card-overall" class="wod-card cursor-pointer bg-dark-card border-2 border-brand p-5 rounded-2xl transition-all duration-200 relative overflow-hidden group flex flex-col justify-center min-h-[96px]">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-brand/10 rounded-bl-full pointer-events-none group-hover:bg-brand/20 transition-all"></div>
+            <div class="flex justify-between items-center">
+                <span class="text-base sm:text-lg font-black uppercase tracking-wider text-brand font-display">종합 순위</span>
+                <span class="text-xs bg-brand/20 text-brand font-semibold px-2 py-0.5 rounded">TOTAL</span>
+            </div>
+        </div>
+
+        <div onclick="selectTab('event1')" id="tab-card-event1" class="wod-card cursor-pointer bg-dark-card border border-dark-border hover:border-brand/50 p-5 rounded-2xl transition-all duration-200 relative overflow-hidden group flex flex-col justify-center min-h-[96px]">
+            <div class="flex justify-between items-center">
+                <span class="text-base sm:text-lg font-black uppercase tracking-wider text-gray-400 font-display">EVENT 01</span>
+                <span class="text-xs bg-gray-800 text-gray-300 font-semibold px-2 py-0.5 rounded">TIME</span>
+            </div>
+        </div>
+
+        <div onclick="selectTab('event2')" id="tab-card-event2" class="wod-card cursor-pointer bg-dark-card border border-dark-border hover:border-brand/50 p-5 rounded-2xl transition-all duration-200 relative overflow-hidden group flex flex-col justify-center min-h-[96px]">
+            <div class="flex justify-between items-center">
+                <span class="text-base sm:text-lg font-black uppercase tracking-wider text-gray-400 font-display">EVENT 02</span>
+                <span class="text-xs bg-gray-800 text-gray-300 font-semibold px-2 py-0.5 rounded">TIME</span>
+            </div>
+        </div>
+
+        <div onclick="selectTab('event3')" id="tab-card-event3" class="wod-card cursor-pointer bg-dark-card border border-dark-border hover:border-brand/50 p-5 rounded-2xl transition-all duration-200 relative overflow-hidden group flex flex-col justify-center min-h-[96px]">
+            <div class="flex justify-between items-center">
+                <span class="text-base sm:text-lg font-black uppercase tracking-wider text-gray-400 font-display">FINAL EVENT</span>
+                <span class="text-xs bg-gray-800 text-gray-300 font-semibold px-2 py-0.5 rounded">TIME</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter & Search Controls -->
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-4 sm:p-6 mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <!-- Left: Search Input -->
+            <div class="relative w-full md:w-80">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <input type="text" id="searchInput" oninput="renderLeaderboard()" placeholder="팀명 검색..." class="w-full bg-dark-bg border border-dark-border focus:border-brand focus:ring-1 focus:ring-brand rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition">
+            </div>
+
+            <!-- Right: Filter Buttons -->
+            <div class="flex flex-wrap gap-2 w-full md:w-auto justify-start md:justify-end">
+                <button onclick="setDivision('ALL')" class="div-btn active-div px-4 py-2 rounded-xl text-xs font-bold transition duration-200 bg-brand text-white border border-brand" data-div="ALL">전체</button>
+                <button onclick="setDivision('MM')" class="div-btn px-4 py-2 rounded-xl text-xs font-bold transition duration-200 bg-dark-bg text-gray-400 border border-dark-border hover:border-gray-600" data-div="MM">MM (남자팀)</button>
+                <button onclick="setDivision('WW')" class="div-btn px-4 py-2 rounded-xl text-xs font-bold transition duration-200 bg-dark-bg text-gray-400 border border-dark-border hover:border-gray-600" data-div="WW">WW (여자팀)</button>
+                <button onclick="setDivision('MW')" class="div-btn px-4 py-2 rounded-xl text-xs font-bold transition duration-200 bg-dark-bg text-gray-400 border border-dark-border hover:border-gray-600" data-div="MW">MW (혼성팀)</button>
+            </div>
+        </div>
+
+        <!-- Leaderboard Table Container -->
+        <div class="bg-dark-card border border-dark-border rounded-2xl overflow-hidden shadow-2xl">
+            <div class="p-4 sm:p-6 border-b border-dark-border flex justify-between items-center bg-dark-card">
+                <div>
+                    <h2 id="currentWodTitle" class="text-xl font-bold text-white flex items-center gap-2">
+                        <span>종합 순위 (총 합산 시간)</span>
+                    </h2>
+                    <p id="currentWodSubtitle" class="text-xs text-gray-400 mt-1">모든 이벤트의 총합 완주 시간을 기준으로 순위가 매겨집니다 (최단 시간 순).</p>
+                </div>
+                <div class="text-xs text-gray-400 font-mono">
+                    총 <span id="totalAthletesCount" class="text-brand font-bold">0</span>개 팀 참가
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead id="tableHead">
+                        <!-- Dynamic Head Inserted Here -->
+                    </thead>
+                    <tbody id="leaderboardBody" class="divide-y divide-dark-border text-sm">
+                        <!-- Dynamic Content Inserted Here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-dark-border py-6 bg-dark-card text-center text-xs text-gray-500">
+        <div class="max-w-7xl mx-auto px-4">
+            <p>© 2026 UBK X PLIS OPENSHOWDOWN. ALL RIGHTS RESERVED.</p>
+        </div>
+    </footer>
+
+    <!-- Score Input Modal -->
+    <div id="scoreModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200 p-4">
+        <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-md p-6 relative shadow-2xl transform scale-95 transition-transform duration-200" id="modalContainer">
+            <!-- Close Button -->
+            <button onclick="closeScoreModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white transition">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+            <!-- Modal Header -->
+            <div class="flex items-center space-x-3 mb-6">
+                <div class="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center border border-brand/20">
+                    <i class="fa-solid fa-stopwatch text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white">팀 기록 제출 / 수정</h3>
+                    <p class="text-xs text-gray-400">팀과 이벤트를 선택한 후 완주 시간을 입력하세요</p>
+                </div>
+            </div>
+
+            <!-- Form -->
+            <form id="scoreForm" onsubmit="handleScoreSubmit(event)" class="space-y-4">
+                <!-- Division Select -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1">디비전 (Division)</label>
+                    <select id="inputDivision" onchange="onDivisionChange()" class="w-full bg-dark-bg border border-dark-border focus:border-brand focus:ring-1 focus:ring-brand rounded-xl px-3 py-2.5 text-sm text-white outline-none">
+                        <option value="MM">MM (남자팀)</option>
+                        <option value="WW">WW (여자팀)</option>
+                        <option value="MW">MW (혼성팀)</option>
+                    </select>
+                </div>
+
+                <!-- Team Name Select / Create -->
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-semibold text-gray-300">팀명 (Team Name)</label>
+                        <button type="button" id="toggleNewTeamBtn" onclick="toggleNewTeamMode()" class="text-xs text-brand hover:underline flex items-center gap-1 font-bold">
+                            <i class="fa-solid fa-plus text-[10px]"></i> 새 팀 추가
+                        </button>
+                    </div>
+
+                    <!-- Dropdown for Existing Teams -->
+                    <select id="selectTeamName" onchange="onTeamSelectChange()" class="w-full bg-dark-bg border border-dark-border focus:border-brand focus:ring-1 focus:ring-brand rounded-xl px-3 py-2.5 text-sm text-white outline-none">
+                        <!-- Populated dynamically -->
+                    </select>
+
+                    <!-- Text Input for New Team (Hidden by default) -->
+                    <div id="newTeamInputContainer" class="hidden mt-2">
+                        <div class="flex gap-2">
+                            <input type="text" id="inputNewTeamName" placeholder="새 팀명 입력 (예: 팀 불사조)" class="w-full bg-dark-bg border border-dark-border focus:border-brand focus:ring-1 focus:ring-brand rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none">
+                            <button type="button" onclick="cancelNewTeamMode()" class="px-3 py-2 bg-dark-bg border border-dark-border rounded-xl text-xs text-gray-400 hover:text-white">취소</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Event Select (Like Division) -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1">기록 입력 이벤트 (Event)</label>
+                    <select id="inputTargetEvent" onchange="loadCurrentEventTime()" class="w-full bg-dark-bg border border-dark-border focus:border-brand focus:ring-1 focus:ring-brand rounded-xl px-3 py-2.5 text-sm text-white outline-none">
+                        <option value="event1">EVENT 01</option>
+                        <option value="event2">EVENT 02</option>
+                        <option value="event3">FINAL EVENT</option>
+                    </select>
+                </div>
+
+                <!-- Event Time Input -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label id="eventTimeLabel" class="block text-xs font-semibold text-gray-300">완주 시간 (분:초)</label>
+                        <span id="prevRecordBadge" class="text-[11px] text-gray-500">기존 기록: 없음</span>
+                    </div>
+                    <input type="text" id="inputEventTime" placeholder="11:45" pattern="^([0-5]?[0-9]):[0-5][0-9]$" class="w-full bg-dark-bg border border-dark-border focus:border-brand focus:ring-1 focus:ring-brand rounded-xl px-4 py-2.5 text-sm text-white font-mono placeholder-gray-500 outline-none text-center text-lg tracking-wider">
+                    <p class="text-[11px] text-gray-500 mt-1">※ 시간은 00:00 (분:초) 형태로 기재해주세요. (예: 12:30)</p>
+                </div>
+
+                <div class="pt-4 flex items-center justify-between border-t border-dark-border mt-4">
+                    <!-- Delete actions for existing teams -->
+                    <div id="deleteActionGroup" class="flex items-center space-x-2">
+                        <button type="button" onclick="deleteCurrentEventRecord()" title="현재 선택된 이벤트 기록만 삭제" class="px-3 py-2 rounded-xl text-xs font-semibold bg-red-950/40 border border-red-800/60 hover:bg-red-900/50 text-red-300 transition">
+                            <i class="fa-solid fa-eraser mr-1"></i> 기록 삭제
+                        </button>
+                        <button type="button" onclick="deleteEntireTeam()" title="팀 전체 데이터 삭제" class="px-2.5 py-2 rounded-xl text-xs font-semibold text-gray-500 hover:text-red-400 hover:bg-dark-hover transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex space-x-2 ml-auto">
+                        <button type="button" onclick="closeScoreModal()" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-dark-bg text-gray-300 border border-dark-border hover:bg-dark-hover transition">취소</button>
+                        <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-brand hover:bg-brand-light text-white brand-glow transition">기록 저장하기</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-brand text-white font-bold text-sm px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i class="fa-solid fa-circle-check"></i>
+        <span id="toastMessage">기록이 성공적으로 등록되었습니다!</span>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // 초 단위를 MM:SS 문자열로 변환
+        function secondsToTimeStr(totalSeconds) {
+            if (totalSeconds === null || totalSeconds === undefined || isNaN(totalSeconds) || totalSeconds >= 999999) return '-';
+            const m = Math.floor(totalSeconds / 60);
+            const s = totalSeconds % 60;
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        // MM:SS 문자열을 초 단위로 변환
+        function timeStrToSeconds(str) {
+            if (!str || typeof str !== 'string' || !str.includes(':')) return null;
+            const parts = str.trim().split(':');
+            if (parts.length !== 2) return null;
+            const min = parseInt(parts[0], 10);
+            const sec = parseInt(parts[1], 10);
+            if (isNaN(min) || isNaN(sec)) return null;
+            return min * 60 + sec;
+        }
+
+        // 기본 샘플 데이터
+        const DEFAULT_TEAMS = [
+            { id: 1, name: '불사조 팀', division: 'MM', timeStamp: '11:15', e1: 685, e2: 520, e3: 390 },
+            { id: 2, name: '크로스퀸즈', division: 'WW', timeStamp: '11:20', e1: 740, e2: 580, e3: 420 },
+            { id: 3, name: '파워하우스', division: 'MW', timeStamp: '11:18', e1: 710, e2: 515, e3: 405 },
+            { id: 4, name: 'UBK 알파', division: 'MM', timeStamp: '11:32', e1: 660, e2: 495, e3: 380 },
+            { id: 5, name: '플리스 원더', division: 'WW', timeStamp: '11:40', e1: 720, e2: 560, e3: 410 },
+            { id: 6, name: '라이트닝 슬레이어', division: 'MW', timeStamp: '11:25', e1: 695, e2: 540, e3: 400 },
+        ];
+
+        const STORAGE_KEY = 'UBK_SHOWDOWN_2026_DATA';
+
+        // LocalStorage에서 데이터 로드 (새로고침해도 보존)
+        function loadTeamsData() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    return JSON.parse(stored);
+                }
+            } catch (e) {
+                console.error("LocalStorage 로드 실패:", e);
+            }
+            return [...DEFAULT_TEAMS];
+        }
+
+        // LocalStorage에 저장
+        function saveTeamsData() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(teams));
+            } catch (e) {
+                console.error("LocalStorage 저장 실패:", e);
+            }
+        }
+
+        // 전체 초기화 기능 (대회 당일 빈 상태로 시작할 때 사용)
+        function resetToInitialData() {
+            const confirmed = window.confirm("데이터를 초기화하시겠습니까?\n\n'확인'을 누르면 기본 예시 데이터로 복원됩니다.\n(새 팀을 모두 삭제하고 비우려면 확인 후 관리)");
+            if (confirmed) {
+                teams = [...DEFAULT_TEAMS];
+                saveTeamsData();
+                renderLeaderboard();
+                showToast("데이터가 초기화되었습니다.");
+            }
+        }
+
+        let teams = loadTeamsData();
+        let currentTab = 'overall'; // 'overall' | 'event1' | 'event2' | 'event3'
+        let currentDivision = 'ALL';
+        let isNewTeamMode = false;
+
+        // 총 합산 시간 계산 (초)
+        function getTotalSeconds(team) {
+            const t1 = team.e1 ?? 999999;
+            const t2 = team.e2 ?? 999999;
+            const t3 = team.e3 ?? 999999;
+            if (t1 === 999999 && t2 === 999999 && t3 === 999999) return 999999;
+            return (team.e1 || 0) + (team.e2 || 0) + (team.e3 || 0);
+        }
+
+        // 탭 선택
+        function selectTab(tabKey) {
+            currentTab = tabKey;
+
+            // Highlight Cards UI
+            ['overall', 'event1', 'event2', 'event3'].forEach(k => {
+                const card = document.getElementById(`tab-card-${k}`);
+                const badge = card.querySelector('.font-display');
+                if (k === tabKey) {
+                    card.classList.add('border-brand');
+                    card.classList.remove('border-dark-border');
+                    badge.classList.add('text-brand');
+                    badge.classList.remove('text-gray-400');
+                } else {
+                    card.classList.remove('border-brand');
+                    card.classList.add('border-dark-border');
+                    badge.classList.remove('text-brand');
+                    badge.classList.add('text-gray-400');
+                }
+            });
+
+            // Update Header Titles
+            const titleEl = document.getElementById('currentWodTitle');
+            const subTitleEl = document.getElementById('currentWodSubtitle');
+            if (tabKey === 'overall') {
+                titleEl.innerHTML = `<span>종합 순위 (총 합산 시간)</span>`;
+                subTitleEl.innerText = "각 이벤트 완주 시간을 모두 합산한 총 시간 순위입니다 (가장 빠른 순).";
+            } else if (tabKey === 'event1') {
+                titleEl.innerHTML = `<span>EVENT 01</span>`;
+                subTitleEl.innerText = "Event 01 완주 시간 순위표입니다.";
+            } else if (tabKey === 'event2') {
+                titleEl.innerHTML = `<span>EVENT 02</span>`;
+                subTitleEl.innerText = "Event 02 완주 시간 순위표입니다.";
+            } else if (tabKey === 'event3') {
+                titleEl.innerHTML = `<span>FINAL EVENT</span>`;
+                subTitleEl.innerText = "Final Event 완주 시간 순위표입니다.";
+            }
+
+            renderLeaderboard();
+        }
+
+        // Render Leaderboard Table
+        function renderLeaderboard() {
+            const tbody = document.getElementById('leaderboardBody');
+            const thead = document.getElementById('tableHead');
+            const searchVal = document.getElementById('searchInput').value.toLowerCase();
+
+            // Filter teams
+            let filtered = teams.filter(t => {
+                const matchDiv = currentDivision === 'ALL' || t.division === currentDivision;
+                const matchSearch = t.name.toLowerCase().includes(searchVal);
+                return matchDiv && matchSearch;
+            });
+
+            // Sort according to active tab (낮은 시간이 1등)
+            filtered.sort((a, b) => {
+                if (currentTab === 'overall') {
+                    return getTotalSeconds(a) - getTotalSeconds(b);
+                } else if (currentTab === 'event1') {
+                    return (a.e1 ?? 999999) - (b.e1 ?? 999999);
+                } else if (currentTab === 'event2') {
+                    return (a.e2 ?? 999999) - (b.e2 ?? 999999);
+                } else if (currentTab === 'event3') {
+                    return (a.e3 ?? 999999) - (b.e3 ?? 999999);
+                }
+                return 0;
+            });
+
+            document.getElementById('totalAthletesCount').innerText = filtered.length;
+
+            // Render Table Header depending on tab
+            if (currentTab === 'overall') {
+                thead.innerHTML = `
+                    <tr class="border-b border-dark-border bg-dark-bg/60 text-xs font-bold uppercase tracking-wider text-gray-400 font-display">
+                        <th class="py-4 px-6 text-center w-20">순위</th>
+                        <th class="py-4 px-6">팀명 (Team)</th>
+                        <th class="py-4 px-6 text-center">디비전</th>
+                        <th class="py-4 px-4 text-center">Event 1</th>
+                        <th class="py-4 px-4 text-center">Event 2</th>
+                        <th class="py-4 px-4 text-center">Final</th>
+                        <th class="py-4 px-6 text-right text-brand">총 합산 시간</th>
+                    </tr>
+                `;
+            } else {
+                thead.innerHTML = `
+                    <tr class="border-b border-dark-border bg-dark-bg/60 text-xs font-bold uppercase tracking-wider text-gray-400 font-display">
+                        <th class="py-4 px-6 text-center w-20">순위</th>
+                        <th class="py-4 px-6">팀명 (Team)</th>
+                        <th class="py-4 px-6 text-center">디비전</th>
+                        <th class="py-4 px-6 text-center">최근 갱신 시간</th>
+                        <th class="py-4 px-6 text-right text-brand">완주 기록</th>
+                    </tr>
+                `;
+            }
+
+            if (filtered.length === 0) {
+                const colSpan = currentTab === 'overall' ? 7 : 5;
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="${colSpan}" class="py-12 text-center text-gray-500">
+                            <i class="fa-solid fa-circle-exclamation text-3xl mb-2 text-gray-600 block"></i>
+                            일치하는 참가 팀이 없습니다.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map((team, index) => {
+                const rank = index + 1;
+                let rankBadge = '';
+                
+                if (rank === 1) {
+                    rankBadge = `<span class="w-8 h-8 rounded-full bg-brand text-white font-black font-display inline-flex items-center justify-center brand-glow">1</span>`;
+                } else if (rank === 2) {
+                    rankBadge = `<span class="w-8 h-8 rounded-full bg-gray-300 text-black font-black font-display inline-flex items-center justify-center">2</span>`;
+                } else if (rank === 3) {
+                    rankBadge = `<span class="w-8 h-8 rounded-full bg-amber-700 text-white font-black font-display inline-flex items-center justify-center">3</span>`;
+                } else {
+                    rankBadge = `<span class="text-gray-400 font-bold font-display">${rank}</span>`;
+                }
+
+                if (currentTab === 'overall') {
+                    const totalSec = getTotalSeconds(team);
+                    const totalDisplay = secondsToTimeStr(totalSec);
+                    return `
+                        <tr class="hover:bg-dark-hover/70 transition duration-150 cursor-pointer" onclick="openEditTeam('${team.name}', '${team.division}')">
+                            <td class="py-4 px-6 text-center">${rankBadge}</td>
+                            <td class="py-4 px-6 font-bold text-white text-base">
+                                ${team.name}
+                            </td>
+                            <td class="py-4 px-6 text-center">
+                                <span class="px-3 py-1 rounded-md text-xs font-bold bg-brand/10 text-brand border border-brand/30">
+                                    ${team.division}
+                                </span>
+                            </td>
+                            <td class="py-4 px-4 text-center font-mono text-gray-300">${secondsToTimeStr(team.e1)}</td>
+                            <td class="py-4 px-4 text-center font-mono text-gray-300">${secondsToTimeStr(team.e2)}</td>
+                            <td class="py-4 px-4 text-center font-mono text-gray-300">${secondsToTimeStr(team.e3)}</td>
+                            <td class="py-4 px-6 text-right font-mono font-black text-brand text-xl text-glow">${totalDisplay}</td>
+                        </tr>
+                    `;
+                } else {
+                    let evScore = '-';
+                    if (currentTab === 'event1') evScore = secondsToTimeStr(team.e1);
+                    if (currentTab === 'event2') evScore = secondsToTimeStr(team.e2);
+                    if (currentTab === 'event3') evScore = secondsToTimeStr(team.e3);
+
+                    return `
+                        <tr class="hover:bg-dark-hover/70 transition duration-150 cursor-pointer" onclick="openEditTeam('${team.name}', '${team.division}')">
+                            <td class="py-4 px-6 text-center">${rankBadge}</td>
+                            <td class="py-4 px-6 font-bold text-white text-base">
+                                ${team.name}
+                            </td>
+                            <td class="py-4 px-6 text-center">
+                                <span class="px-3 py-1 rounded-md text-xs font-bold bg-brand/10 text-brand border border-brand/30">
+                                    ${team.division}
+                                </span>
+                            </td>
+                            <td class="py-4 px-6 text-center text-gray-400 text-xs font-mono">${team.timeStamp || '11:00'}</td>
+                            <td class="py-4 px-6 text-right font-mono font-bold text-brand text-lg">${evScore}</td>
+                        </tr>
+                    `;
+                }
+            }).join('');
+        }
+
+        // Filter Division
+        function setDivision(division) {
+            currentDivision = division;
+            document.querySelectorAll('.div-btn').forEach(btn => {
+                if (btn.getAttribute('data-div') === division) {
+                    btn.className = "div-btn active-div px-4 py-2 rounded-xl text-xs font-bold transition duration-200 bg-brand text-white border border-brand shadow-lg brand-glow";
+                } else {
+                    btn.className = "div-btn px-4 py-2 rounded-xl text-xs font-bold transition duration-200 bg-dark-bg text-gray-400 border border-dark-border hover:border-gray-600";
+                }
+            });
+            renderLeaderboard();
+        }
+
+        // Teams dropdown populate for selected division
+        function updateTeamDropdown(selectedTeamName = '') {
+            const div = document.getElementById('inputDivision').value;
+            const selectEl = document.getElementById('selectTeamName');
+            const divTeams = teams.filter(t => t.division === div);
+
+            selectEl.innerHTML = '';
+            if (divTeams.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.innerText = '등록된 팀 없음 (새 팀 추가 필요)';
+                selectEl.appendChild(opt);
+            } else {
+                divTeams.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.name;
+                    opt.innerText = t.name;
+                    if (t.name === selectedTeamName) opt.selected = true;
+                    selectEl.appendChild(opt);
+                });
+            }
+
+            loadCurrentEventTime();
+        }
+
+        function onDivisionChange() {
+            if (!isNewTeamMode) {
+                updateTeamDropdown();
+            }
+        }
+
+        function onTeamSelectChange() {
+            loadCurrentEventTime();
+        }
+
+        function loadCurrentEventTime() {
+            const targetEvent = document.getElementById('inputTargetEvent').value;
+            const timeInput = document.getElementById('inputEventTime');
+            const badge = document.getElementById('prevRecordBadge');
+            const deleteGroup = document.getElementById('deleteActionGroup');
+
+            if (isNewTeamMode) {
+                timeInput.value = '';
+                badge.innerText = '신규 팀 생성 중';
+                if (deleteGroup) deleteGroup.classList.add('hidden');
+                return;
+            }
+
+            const teamName = document.getElementById('selectTeamName').value;
+            const div = document.getElementById('inputDivision').value;
+            const team = teams.find(t => t.name === teamName && t.division === div);
+
+            if (!team) {
+                timeInput.value = '';
+                badge.innerText = '기존 기록: 없음';
+                if (deleteGroup) deleteGroup.classList.add('hidden');
+                return;
+            }
+
+            if (deleteGroup) deleteGroup.classList.remove('hidden');
+
+            let prevSeconds = null;
+            if (targetEvent === 'event1') prevSeconds = team.e1;
+            if (targetEvent === 'event2') prevSeconds = team.e2;
+            if (targetEvent === 'event3') prevSeconds = team.e3;
+
+            if (prevSeconds !== null && prevSeconds !== undefined) {
+                const formatted = secondsToTimeStr(prevSeconds);
+                timeInput.value = formatted;
+                badge.innerText = `기존 기록: ${formatted}`;
+            } else {
+                timeInput.value = '';
+                badge.innerText = '기존 기록: 미입력';
+            }
+        }
+
+        // 현재 선택한 이벤트 기록 삭제 (초기화)
+        function deleteCurrentEventRecord() {
+            if (isNewTeamMode) return;
+            const teamName = document.getElementById('selectTeamName').value;
+            const division = document.getElementById('inputDivision').value;
+            const targetEvent = document.getElementById('inputTargetEvent').value;
+
+            const team = teams.find(t => t.name === teamName && t.division === division);
+            if (!team) return;
+
+            const eventName = targetEvent === 'event1' ? 'EVENT 01' : targetEvent === 'event2' ? 'EVENT 02' : 'FINAL EVENT';
+
+            if (targetEvent === 'event1') team.e1 = null;
+            if (targetEvent === 'event2') team.e2 = null;
+            if (targetEvent === 'event3') team.e3 = null;
+
+            saveTeamsData();
+            loadCurrentEventTime();
+            renderLeaderboard();
+            showToast(`[${teamName}]의 ${eventName} 기록이 삭제되었습니다.`);
+        }
+
+        // 팀 자체를 완전 삭제
+        function deleteEntireTeam() {
+            if (isNewTeamMode) return;
+            const teamName = document.getElementById('selectTeamName').value;
+            const division = document.getElementById('inputDivision').value;
+
+            const index = teams.findIndex(t => t.name === teamName && t.division === division);
+            if (index === -1) return;
+
+            teams.splice(index, 1);
+            saveTeamsData();
+            updateTeamDropdown();
+            renderLeaderboard();
+            closeScoreModal();
+            showToast(`[${teamName}] 팀이 삭제되었습니다.`);
+        }
+
+        function toggleNewTeamMode() {
+            isNewTeamMode = true;
+            document.getElementById('selectTeamName').classList.add('hidden');
+            document.getElementById('newTeamInputContainer').classList.remove('hidden');
+            document.getElementById('toggleNewTeamBtn').classList.add('hidden');
+            document.getElementById('inputNewTeamName').value = '';
+            document.getElementById('inputNewTeamName').focus();
+            loadCurrentEventTime();
+        }
+
+        function cancelNewTeamMode() {
+            isNewTeamMode = false;
+            document.getElementById('selectTeamName').classList.remove('hidden');
+            document.getElementById('newTeamInputContainer').classList.add('hidden');
+            document.getElementById('toggleNewTeamBtn').classList.remove('hidden');
+            updateTeamDropdown();
+        }
+
+        // Modal Controls
+        function openScoreModal(defaultTab = '') {
+            document.getElementById('scoreForm').reset();
+            cancelNewTeamMode();
+
+            // 현재 리더보드 탭이나 디비전에 맞춰 기본값 설정
+            if (currentDivision !== 'ALL') {
+                document.getElementById('inputDivision').value = currentDivision;
+            }
+            if (defaultTab && ['event1', 'event2', 'event3'].includes(defaultTab)) {
+                document.getElementById('inputTargetEvent').value = defaultTab;
+            } else if (['event1', 'event2', 'event3'].includes(currentTab)) {
+                document.getElementById('inputTargetEvent').value = currentTab;
+            }
+
+            updateTeamDropdown();
+
+            const modal = document.getElementById('scoreModal');
+            const container = document.getElementById('modalContainer');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                container.classList.remove('scale-95');
+                container.classList.add('scale-100');
+            }, 10);
+        }
+
+        function openEditTeam(teamName, division) {
+            cancelNewTeamMode();
+            document.getElementById('inputDivision').value = division;
+            updateTeamDropdown(teamName);
+
+            if (['event1', 'event2', 'event3'].includes(currentTab)) {
+                document.getElementById('inputTargetEvent').value = currentTab;
+            }
+
+            loadCurrentEventTime();
+
+            const modal = document.getElementById('scoreModal');
+            const container = document.getElementById('modalContainer');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                container.classList.remove('scale-95');
+                container.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeScoreModal() {
+            const modal = document.getElementById('scoreModal');
+            const container = document.getElementById('modalContainer');
+            modal.classList.add('opacity-0');
+            container.classList.remove('scale-100');
+            container.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        // Form Submission
+        function handleScoreSubmit(event) {
+            event.preventDefault();
+            const division = document.getElementById('inputDivision').value;
+            const targetEvent = document.getElementById('inputTargetEvent').value;
+            const timeStr = document.getElementById('inputEventTime').value.trim();
+            const sec = timeStrToSeconds(timeStr);
+
+            let teamName = '';
+            if (isNewTeamMode) {
+                teamName = document.getElementById('inputNewTeamName').value.trim();
+                if (!teamName) {
+                    showToast("팀명을 입력해주세요!");
+                    return;
+                }
+            } else {
+                teamName = document.getElementById('selectTeamName').value;
+                if (!teamName) {
+                    showToast("선택할 팀이 없습니다. 새 팀을 추가해주세요.");
+                    return;
+                }
+            }
+
+            if (sec === null) {
+                showToast("올바른 시간(분:초)을 입력해주세요.");
+                return;
+            }
+
+            const now = new Date();
+            const timeStamp = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            let team = teams.find(t => t.name.toLowerCase() === teamName.toLowerCase() && t.division === division);
+
+            if (team) {
+                team.timeStamp = timeStamp;
+                if (targetEvent === 'event1') team.e1 = sec;
+                if (targetEvent === 'event2') team.e2 = sec;
+                if (targetEvent === 'event3') team.e3 = sec;
+            } else {
+                team = {
+                    id: Date.now(),
+                    name: teamName,
+                    division: division,
+                    timeStamp: timeStamp,
+                    e1: targetEvent === 'event1' ? sec : null,
+                    e2: targetEvent === 'event2' ? sec : null,
+                    e3: targetEvent === 'event3' ? sec : null,
+                };
+                teams.push(team);
+            }
+
+            saveTeamsData(); // 로컬 스토리지에 자동 저장
+            closeScoreModal();
+            renderLeaderboard();
+            showToast(`[${teamName}] ${targetEvent.toUpperCase()} 기록이 저장되었습니다!`);
+        }
+
+        // Toast Message Notification
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').innerText = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Initial Initialization
+        window.onload = function() {
+            renderLeaderboard();
+        };
+    </script>
+</body>
+</html>
