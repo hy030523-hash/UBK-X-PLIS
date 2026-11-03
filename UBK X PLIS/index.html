@@ -35,7 +35,7 @@
 
         async function initFirebase() {
             try {
-                if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "AIzaSyBvS8Q6e9wXrwH2Za7mOoDx27uu9fYKU6M") {
+                if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
                     const app = initializeApp(firebaseConfig);
                     auth = getAuth(app);
                     db = getFirestore(app);
